@@ -80,9 +80,9 @@ Steht die Bedeutung nur in der Doku, rät er. Die Regeln (siehe Tabelle oben):
 - **secrets:** Zugangsdaten werden in einer `PasswordTextBox` eingegeben.
 - **selftest:** Geräte-, Splitter- und I/O-Module bieten `<PRÄFIX>_RunSelfTest(): string` ohne Nebenwirkung.
 - **hints:** Jede öffentliche Funktion kommt in der `form.json` vor (z. B. als unsichtbarer Hinweis).
+- **params:** Parameternamen sagen, was erwartet wird.
 
 Formulare, die im PHP-Code entstehen (eigenes `GetConfigurationForm()` in der `module.php`), werden ebenfalls gelesen: Statuseinträge, Felder und Texte stammen dann aus den Array-Literalen der Modulklasse. Als öffentliche Funktionen zählen nur die der Modulklasse, nicht die von Hilfsklassen in derselben Datei.
-- **params:** Parameternamen sagen, was erwartet wird.
 
 Aufruf lokal: `php check_mcp.php <Bibliothek> --lang=de`. In GitHub Actions: `uses: bumaas/symcon-mcp-check@v1`
 mit `language: de`. Das Badge zeigt das Ergebnis des Workflows; „MCP check" ist kein offizielles Symcon-Siegel.
