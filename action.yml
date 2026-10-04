@@ -1,0 +1,25 @@
+name: Symcon MCP Check
+description: Static checks whether a Symcon module library can be used well by AI assistants through the Symcon MCP server.
+author: bumaas
+branding:
+  icon: check-circle
+  color: blue
+inputs:
+  path:
+    description: Path to the module library (folder with library.json).
+    required: false
+    default: '.'
+  language:
+    description: Language of the findings (en or de).
+    required: false
+    default: 'en'
+  fail-on:
+    description: Fail the step on "error" (default) or already on "warning".
+    required: false
+    default: 'error'
+runs:
+  using: composite
+  steps:
+    - name: Run MCP check
+      shell: bash
+      run: php "$GITHUB_ACTION_PATH/check_mcp.php" "${{ inputs.path }}" --lang="${{ inputs.language }}" --fail-on="${{ inputs.fail-on }}"

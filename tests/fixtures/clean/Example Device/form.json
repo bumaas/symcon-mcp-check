@@ -1,0 +1,12 @@
+{
+  "elements": [
+    {"type": "ValidationTextBox", "name": "Host", "caption": "Host"},
+    {"type": "PasswordTextBox", "name": "ApiToken", "caption": "API token"},
+    {"type": "Label", "visible": false, "caption": "EXD_SetBrightness(InstanceID, brightnessPercent): sets the brightness 0-100, returns true on success."}
+  ],
+  "status": [
+    {"code": 102, "icon": "active", "caption": "Active"},
+    {"code": 201, "icon": "error", "caption": "Device does not answer"},
+    {"code": 202, "icon": "error", "caption": "Access denied"}
+  ]
+}

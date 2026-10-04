@@ -1,0 +1,23 @@
+name: Test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+      - name: Syntax
+        run: for f in check_mcp.php src/*.php tests/*.php; do php -l "$f" || exit 1; done
+      - name: Rules
+        run: php tests/run.php
+      - name: Action on the clean fixture
+        uses: ./
+        with:
+          path: tests/fixtures/clean
+          fail-on: warning
