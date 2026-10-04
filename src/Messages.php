@@ -46,6 +46,26 @@ final class Messages
             'en' => '%1$s: parameter %2$s says nothing about what is expected — only parameter names travel with the function.',
             'de' => '%1$s: Parameter %2$s sagt nicht, was erwartet wird — mit der Funktion reisen nur die Parameternamen.',
         ],
+        'hint_visible' => [
+            'en' => 'Hint "%1$s…" is shown in the console — hints for scripts and AI assistants belong in a label with "visible": false.',
+            'de' => 'Hinweis „%1$s…“ erscheint in der Konsole — Hinweise für Skripte und KI-Assistenten gehören in ein Label mit "visible": false.',
+        ],
+        'hint_stale' => [
+            'en' => 'The form names %1$s, but there is no such public function — a hint or button refers to a removed or renamed function.',
+            'de' => 'Das Formular nennt %1$s, eine solche öffentliche Funktion gibt es aber nicht — ein Hinweis oder Knopf verweist auf eine entfernte oder umbenannte Funktion.',
+        ],
+        'requestaction_silent_default' => [
+            'en' => 'RequestAction of %1$s: the default branch of the switch reports nothing (no trigger_error/throw) — an unknown ident fails silently for scripts and AI assistants.',
+            'de' => 'RequestAction von %1$s: Der default-Zweig des switch meldet nichts (kein trigger_error/throw) — ein unbekannter Ident scheitert für Skripte und KI-Assistenten still.',
+        ],
+        'status_not_logged' => [
+            'en' => 'Module %1$s sets error states but never writes to the log (LogMessage) — an AI only sees the number; log the cause and the next step once per change.',
+            'de' => 'Modul %1$s setzt Fehlerstatus, schreibt aber nie ins Log (LogMessage) — eine KI sieht nur die Zahl; Ursache und nächsten Schritt einmal je Wechsel loggen.',
+        ],
+        'debug_secret' => [
+            'en' => 'Debug output contains %1$s — every AI with read access sees the debug through the MCP server; mask credentials (e.g. by overriding SendDebug).',
+            'de' => 'Debug-Ausgabe enthält %1$s — jede KI mit Lesezugriff sieht das Debug über den MCP-Server; Zugangsdaten maskieren (z. B. durch Überschreiben von SendDebug).',
+        ],
     ];
 
     public static function format(string $key, array $args, string $language): string

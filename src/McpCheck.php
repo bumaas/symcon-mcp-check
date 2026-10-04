@@ -25,7 +25,21 @@ final class McpCheck
     private const array GENERIC_PARAMETER_NAMES = [
         'value', 'status', 'data', 'param', 'params', 'parameter', 'wert', 'text', 'string', 'arg', 'args',
         'input', 'val', 'x', 'p', 'v',
+        // aus dem Roborock-Umbau (04.10.2026): dort in 21 Funktionen umbenannt
+        'y', 'state', 'mode', 'power', 'number', 'part', 'time', 'direction', 'token',
     ];
+
+    /** Wording that marks a label as a hint for scripts and AI assistants (Roborock, ebusdMQTT, SonyTV, BlindControl). */
+    private const string HINT_MARKER = '/for scripts|from a script|in scripts|ai assistant|für skripte|ki-assistent/i';
+
+    /** @var array<string, true> public function names of the whole library (lower case), incl. base classes and traits */
+    private array $libraryFunctions = [];
+
+    /** @var array<string, true> traits of the library that override SendDebug (lower case) */
+    private array $maskingTraits = [];
+
+    /** @var array<string, true> traits of the library that write to the log (lower case) */
+    private array $loggingTraits = [];
 
     /** Form element names that hold credentials. */
     private const string SECRET_NAME_PATTERN = '/(passw(or)?(d|t)|token|secret|api_?key|apikey|^pin$|credential)/i';
@@ -48,6 +62,7 @@ final class McpCheck
             $this->add('setup', 'error', 'library.json', 0, 'no_library', []);
             return $this->findings;
         }
+        $this->scanLibrary();
         foreach ($this->findModuleDirectories() as $directory) {
             $this->checkModule($directory);
         }
@@ -88,6 +103,192 @@ final class McpCheck
         $this->checkSelfTest($directory, $moduleJson, $publicFunctions, $prefix);
         $this->checkFunctionHints($directory, $publicFunctions, $form, $prefix, $source, $codeForm);
         $this->checkParameterNames($directory, $publicFunctions, $prefix);
+        $this->checkHintVisibility($directory, $form, $codeForm);
+        $this->checkStaleNames($directory, $form, $codeForm, $prefix);
+        $this->checkRequestAction($directory, $classSource, $prefix);
+        $this->checkStatusLogged($directory, $source, $classSource);
+        $this->checkDebugSecrets($directory, $classSource);
+    }
+
+    /** Public functions and SendDebug-overriding traits of all PHP files of the library (not tests, .style, vendor). */
+    private function scanLibrary(): void
+    {
+        $this->libraryFunctions = [];
+        $this->maskingTraits    = [];
+        $this->loggingTraits    = [];
+        $files = new RecursiveIteratorIterator(new RecursiveCallbackFilterIterator(
+            new RecursiveDirectoryIterator($this->root, FilesystemIterator::SKIP_DOTS),
+            static fn(SplFileInfo $f): bool => !($f->isDir() && in_array($f->getFilename(), ['.git', '.style', 'tests', 'vendor', 'stubs', 'node_modules'], true))
+        ));
+        foreach ($files as $file) {
+            if ($file->getExtension() !== 'php') {
+                continue;
+            }
+            $code = (string)file_get_contents($file->getPathname());
+            if (preg_match_all('/^[ \t]*public\s+(?:static\s+)?function\s+(\w+)\s*\(/m', $code, $m)) {
+                foreach ($m[1] as $name) {
+                    $this->libraryFunctions[strtolower($name)] = true;
+                }
+            }
+            if (preg_match_all('/\btrait\s+(\w+)\s*\{/', $code, $t)) {
+                foreach ($t[1] as $trait) {
+                    if (preg_match('/function\s+SendDebug\s*\(/', $code)) {
+                        $this->maskingTraits[strtolower($trait)] = true;
+                    }
+                    if (preg_match('/LogMessage\s*\(/', $code)) {
+                        $this->loggingTraits[strtolower($trait)] = true;
+                    }
+                }
+            }
+        }
+    }
+
+    // ---- Rule 6: hints stay hidden and current --------------------------------------------------------
+
+    private function checkHintVisibility(string $directory, ?array $form, ?array $codeForm): void
+    {
+        if ($form !== null) {
+            $visit = function (array $element) use ($directory): void {
+                $caption = (string)($element['caption'] ?? '');
+                if (($element['type'] ?? '') === 'Label' && preg_match(self::HINT_MARKER, $caption) && ($element['visible'] ?? true) !== false) {
+                    $this->add('hints', 'error', $directory . '/form.json', 0, 'hint_visible', [$this->hintStart($caption)]);
+                }
+            };
+            $this->walkFormElements($form['elements'] ?? [], $visit);
+            $this->walkFormElements($form['actions'] ?? [], $visit);
+        }
+        foreach (($codeForm['labels'] ?? []) as $label) {
+            if (preg_match(self::HINT_MARKER, $label['caption']) && !$label['hidden']) {
+                $this->add('hints', 'error', $directory . '/module.php', $label['line'], 'hint_visible', [$this->hintStart($label['caption'])]);
+            }
+        }
+    }
+
+    private function hintStart(string $caption): string
+    {
+        $start = strstr($caption, ':', true);
+        return mb_substr($start === false ? $caption : $start, 0, 40);
+    }
+
+    private function checkStaleNames(string $directory, ?array $form, ?array $codeForm, string $prefix): void
+    {
+        if ($prefix === '') {
+            return;
+        }
+        // A name counts as a function when it is called or shown with its signature (PREFIX_Name( …) anywhere
+        // in the form, or when a marked hint lists it. Element names like "PREFIX_url" are properties.
+        $sources = [];
+        if ($form !== null) {
+            $hints = [];
+            $collect = function (array $element) use (&$hints): void {
+                $caption = (string)($element['caption'] ?? '');
+                if (($element['type'] ?? '') === 'Label' && preg_match(self::HINT_MARKER, $caption)) {
+                    $hints[] = $caption;
+                }
+            };
+            $this->walkFormElements($form['elements'] ?? [], $collect);
+            $this->walkFormElements($form['actions'] ?? [], $collect);
+            $sources[$directory . '/form.json'] = [(string)json_encode($form, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), implode("\n", $hints)];
+        }
+        if ($codeForm !== null) {
+            $hints = array_column(array_filter($codeForm['labels'], fn(array $l): bool => (bool)preg_match(self::HINT_MARKER, $l['caption'])), 'caption');
+            $sources[$directory . '/module.php'] = [$codeForm['text'], implode("\n", $hints)];
+        }
+        $quoted = preg_quote($prefix, '/');
+        foreach ($sources as $file => [$text, $hintText]) {
+            $names = [];
+            if (preg_match_all('/\b' . $quoted . '_(\w+)\s*\(/', $text, $m)) {
+                $names = $m[1];
+            }
+            if (preg_match_all('/\b' . $quoted . '_(\w+)\b/', $hintText, $m)) {
+                $names = array_merge($names, $m[1]);
+            }
+            foreach (array_unique($names) as $name) {
+                if (!isset($this->libraryFunctions[strtolower($name)])) {
+                    $this->add('hints', 'error', $file, 0, 'hint_stale', [$prefix . '_' . $name]);
+                }
+            }
+        }
+    }
+
+    // ---- Rule 8: RequestAction reports every failure ---------------------------------------------------
+
+    private function checkRequestAction(string $directory, string $classSource, string $prefix): void
+    {
+        $body = $this->functionBody($classSource, 'RequestAction');
+        if ($body === null || !preg_match('/\bswitch\s*\(/', $body)) {
+            return; // no switch (delegates or uses match) — nothing to judge statically
+        }
+        $default = strrpos($body, 'default:');
+        $silent  = $default === false || !preg_match('/\b(trigger_error|throw)\b/', substr($body, $default));
+        if ($silent) {
+            $this->add('action', 'warning', $directory . '/module.php', 0, 'requestaction_silent_default', [$prefix !== '' ? $prefix : $directory]);
+        }
+    }
+
+    /** Body of a method in the module class (from its opening brace to the matching closing brace), or null. */
+    private function functionBody(string $classSource, string $name): ?string
+    {
+        if (!preg_match('/function\s+' . preg_quote($name, '/') . '\s*\([^)]*\)[^{]*\{/', $classSource, $m, PREG_OFFSET_CAPTURE)) {
+            return null;
+        }
+        $start = $m[0][1] + strlen($m[0][0]);
+        $depth = 1;
+        $len   = strlen($classSource);
+        for ($i = $start; $i < $len; $i++) {
+            if ($classSource[$i] === '{') {
+                $depth++;
+            } elseif ($classSource[$i] === '}' && --$depth === 0) {
+                return substr($classSource, $start, $i - $start);
+            }
+        }
+        return null;
+    }
+
+    /** Does the module class use (use X, Y;) one of the given traits? */
+    private function usesTraitFrom(string $classSource, array $traits): bool
+    {
+        if ($traits === [] || !preg_match_all('/^[ \t]*use\s+([\w\\\\, ]+);/m', $classSource, $uses)) {
+            return false;
+        }
+        foreach ($uses[1] as $list) {
+            foreach (array_map('trim', explode(',', $list)) as $trait) {
+                if (isset($traits[strtolower(basename(str_replace('\\', '/', $trait)))])) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    // ---- Rule 3: error states are logged ---------------------------------------------------------------
+
+    private function checkStatusLogged(string $directory, string $source, string $classSource): void
+    {
+        if ($this->findUsedStatusCodes($source) !== [] && !preg_match('/LogMessage\s*\(/', $source)
+            && !$this->usesTraitFrom($classSource, $this->loggingTraits)) {
+            $this->add('status', 'warning', $directory . '/module.php', 0, 'status_not_logged', [$directory]);
+        }
+    }
+
+    // ---- Rules 10/13: no credentials in the debug output -----------------------------------------------
+
+    private function checkDebugSecrets(string $directory, string $classSource): void
+    {
+        if (preg_match('/function\s+SendDebug\s*\(/', $classSource)) {
+            return; // the module masks its own debug output
+        }
+        if ($this->usesTraitFrom($classSource, $this->maskingTraits)) {
+            return;
+        }
+        foreach (preg_split('/\R/', $classSource) ?: [] as $index => $line) {
+            if (!preg_match('/\b(SendDebug|_debug|logDebug)\s*\(/', $line) || preg_match('/^\s*(\*|\/\/|#)/', $line)) {
+                continue;
+            }
+            if (preg_match('/\$\w*(token|passw|secret)\w*\b|[\'"](token|password|ssecurity|serviceToken|passToken)[\'"]/i', $line, $hit)) {
+                $this->add('secrets', 'warning', $directory . '/module.php', $index + 1, 'debug_secret', [$hit[0]]);
+            }
+        }
     }
 
     /**
@@ -123,7 +324,7 @@ final class McpCheck
             }
         }
         $literal = '\'((?:[^\'\\\\]|\\\\.)*)\'';
-        $result  = ['status' => [], 'fields' => [], 'text' => ''];
+        $result  = ['status' => [], 'fields' => [], 'labels' => [], 'text' => ''];
         preg_match_all('/\[[^\[\]]*\]/', $classSource, $arrays, PREG_OFFSET_CAPTURE);
         foreach ($arrays[0] as [$array, $offset]) {
             $line = substr_count(substr($classSource, 0, $offset), "\n") + 1;
@@ -137,8 +338,11 @@ final class McpCheck
             if (preg_match("/'name'\s*=>\s*$literal/", $array, $name) && preg_match("/'type'\s*=>\s*$literal/", $array, $type)) {
                 $result['fields'][] = ['name' => $name[1], 'type' => $type[1], 'line' => $line];
             }
+            if ($caption !== null && preg_match("/'type'\s*=>\s*'Label'/", $array)) {
+                $result['labels'][] = ['caption' => $caption, 'hidden' => (bool)preg_match("/'visible'\s*=>\s*false/", $array), 'line' => $line];
+            }
         }
-        if (preg_match_all("/'(?:caption|label)'\s*=>\s*$literal/", $classSource, $texts)) {
+        if (preg_match_all("/'(?:caption|label|onClick)'\s*=>\s*$literal/", $classSource, $texts)) {
             $result['text'] = implode("\n", array_map('stripcslashes', $texts[1]));
         }
         return $result;

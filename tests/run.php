@@ -48,6 +48,14 @@ $expected = [
     'warning secrets secret_not_password_field ApiToken,ValidationTextBox' => 'code-built form: credential in a ValidationTextBox',
     'warning hints function_without_hint FCD_SwitchOutput' => 'code-built form: public function without hint',
     'warning params generic_parameter FCD_SwitchOutput,$Value' => 'code-built form: generic parameter name',
+    'error hints hint_visible For scripts and AI assistants' => 'hint for scripts/AI shown in the console',
+    'error hints hint_stale FCD_OldFunction' => 'form names a function that does not exist',
+    'warning action requestaction_silent_default FCD' => 'RequestAction default branch does not report the unknown ident',
+    'warning status status_not_logged Code Device' => 'error status set, cause never logged (code form)',
+    'warning status status_not_logged Example Device' => 'error status set, cause never logged (form.json)',
+    'warning secrets debug_secret $token' => 'credential written to the debug output',
+    'warning hints function_without_hint FCD_SetPower' => 'second public function without hint',
+    'warning params generic_parameter FCD_SetPower,$power' => 'generic parameter name $power',
 ];
 foreach ($expected as $line => $label) {
     check(in_array($line, $flawed, true), 'flawed library: ' . $label, implode('; ', $flawed));
@@ -67,7 +75,7 @@ $none = summary((new McpCheck(__DIR__))->run());
 check($none === ['error setup no_library '], 'directory without library.json: setup error', implode('; ', $none));
 
 // ---- messages exist in both languages ----
-foreach (['status_not_declared', 'secret_not_password_field', 'no_selftest', 'function_without_hint', 'generic_parameter'] as $key) {
+foreach (['status_not_declared', 'secret_not_password_field', 'no_selftest', 'function_without_hint', 'generic_parameter', 'hint_visible', 'hint_stale', 'requestaction_silent_default', 'status_not_logged', 'debug_secret'] as $key) {
     check(Messages::format($key, ['A', 'B'], 'de') !== Messages::format($key, ['A', 'B'], 'en'), "message $key translated");
 }
 

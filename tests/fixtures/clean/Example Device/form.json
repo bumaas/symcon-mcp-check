@@ -1,6 +1,7 @@
 {
   "elements": [
     {"type": "ValidationTextBox", "name": "Host", "caption": "Host"},
+    {"type": "ValidationTextBox", "name": "EXD_HostName", "caption": "Host name (property with the module prefix, no function)"},
     {"type": "PasswordTextBox", "name": "ApiToken", "caption": "API token"},
     {"type": "Label", "visible": false, "caption": "EXD_SetBrightness(InstanceID, brightnessPercent): sets the brightness 0-100, returns true on success."}
   ],

@@ -18,6 +18,9 @@ class ExampleDevice extends IPSModuleStrict
         parent::ApplyChanges();
         $status = $this->ReadPropertyString('Host') === '' ? self::STATUS_NO_ANSWER : IS_ACTIVE;
         $this->SetStatus($status);
+        if ($status !== IS_ACTIVE) {
+            $this->LogMessage('Device does not answer, check the host.', KL_WARNING);
+        }
         if ($this->ReadPropertyString('ApiToken') === 'x') {
             $this->SetStatus(202);
         }

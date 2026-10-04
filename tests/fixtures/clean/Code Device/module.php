@@ -12,6 +12,8 @@ class CodeDevice extends IPSModuleStrict
     {
         parent::ApplyChanges();
         $this->SetStatus($this->ReadPropertyString('Host') === '' ? self::STATUS_NO_ANSWER : self::STATUS_TOKEN_INVALID);
+        $this->LogMessage('Device does not respond.', KL_WARNING);
+        $this->SendDebug('Host', $this->ReadPropertyString('Host'), 0);
     }
 
     public function GetConfigurationForm(): string
@@ -29,6 +31,17 @@ class CodeDevice extends IPSModuleStrict
             ],
             'status'   => $this->FormStatus()
         ]);
+    }
+
+    public function RequestAction(string $Ident, mixed $Value): void
+    {
+        switch ($Ident) {
+            case 'Level':
+                $this->SetLevel((int)$Value);
+                break;
+            default:
+                trigger_error(sprintf('"%s" is not an action of this instance.', $Ident), E_USER_WARNING);
+        }
     }
 
     public function SetLevel(int $levelPercent): bool
