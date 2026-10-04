@@ -22,6 +22,8 @@ catch the gaps that can be found in the source.
 | `hints` | warning | Every public function (except kernel callbacks, `RunSelfTest` and timer targets) is mentioned in `form.json`, e.g. in a hidden label: what it does, when to use it, what the parameters expect, what it returns. |
 | `params` | warning | Public functions have meaningful parameter names (`$brightnessPercent`, not `$Value`) — only the names travel with the function. |
 
+Forms built in PHP code (an own `GetConfigurationForm()` in `module.php`) are read as well: status entries, fields and captions come from the array literals of the module class. Only the module class (`extends IPSModule`/`IPSModuleStrict`) counts for public functions — helper classes in the same file do not.
+
 Behaviour (invalid values rejected with an error, state surviving a reload, variables named and presented
 unambiguously) cannot be checked statically; test it in the module's own runtime tests.
 
@@ -78,6 +80,8 @@ Steht die Bedeutung nur in der Doku, rät er. Die Regeln (siehe Tabelle oben):
 - **secrets:** Zugangsdaten werden in einer `PasswordTextBox` eingegeben.
 - **selftest:** Geräte-, Splitter- und I/O-Module bieten `<PRÄFIX>_RunSelfTest(): string` ohne Nebenwirkung.
 - **hints:** Jede öffentliche Funktion kommt in der `form.json` vor (z. B. als unsichtbarer Hinweis).
+
+Formulare, die im PHP-Code entstehen (eigenes `GetConfigurationForm()` in der `module.php`), werden ebenfalls gelesen: Statuseinträge, Felder und Texte stammen dann aus den Array-Literalen der Modulklasse. Als öffentliche Funktionen zählen nur die der Modulklasse, nicht die von Hilfsklassen in derselben Datei.
 - **params:** Parameternamen sagen, was erwartet wird.
 
 Aufruf lokal: `php check_mcp.php <Bibliothek> --lang=de`. In GitHub Actions: `uses: bumaas/symcon-mcp-check@v1`

@@ -77,20 +77,87 @@ final class McpCheck
         $locale = is_file($this->root . '/' . $directory . '/locale.json') ? $this->readJson($directory . '/locale.json') : null;
         $source = is_file($this->root . '/' . $directory . '/module.php') ? (string)file_get_contents($this->root . '/' . $directory . '/module.php') : '';
         $prefix = (string)($moduleJson['prefix'] ?? '');
+        $classSource = $this->moduleClassSource($source);
+        // Form built in code (GetConfigurationForm in module.php, e.g. Roborock): read status list,
+        // fields and captions from the array literals of the module class as well.
+        $codeForm = preg_match('/function\s+GetConfigurationForm\s*\(/', $classSource) ? $this->parseCodeForm($classSource) : null;
 
-        $this->checkStatusCodes($directory, $source, $form, $locale);
-        $this->checkSecrets($directory, $form);
-        $publicFunctions = $this->findPublicFunctions($source);
+        $this->checkStatusCodes($directory, $source, $form, $locale, $codeForm);
+        $this->checkSecrets($directory, $form, $codeForm);
+        $publicFunctions = $this->findPublicFunctions($classSource, substr_count(substr($source, 0, (int)strpos($source, $classSource)), "\n"));
         $this->checkSelfTest($directory, $moduleJson, $publicFunctions, $prefix);
-        $this->checkFunctionHints($directory, $publicFunctions, $form, $prefix, $source);
+        $this->checkFunctionHints($directory, $publicFunctions, $form, $prefix, $source, $codeForm);
         $this->checkParameterNames($directory, $publicFunctions, $prefix);
+    }
+
+    /**
+     * The module class only (class … extends IPSModule/IPSModuleStrict up to the next class, trait,
+     * interface or enum) — helper classes in the same file are not module functions.
+     */
+    private function moduleClassSource(string $source): string
+    {
+        if (!preg_match('/^[ 	]*(?:final\s+|abstract\s+)?class\s+\w+\s+extends\s+IPSModule(?:Strict)?\b/m', $source, $m, PREG_OFFSET_CAPTURE)) {
+            return $source;
+        }
+        $start = $m[0][1];
+        $rest  = substr($source, $start + strlen($m[0][0]));
+        if (preg_match('/^[ 	]*(?:final\s+|abstract\s+|readonly\s+)*(?:class|trait|interface|enum)\s+\w+/m', $rest, $n, PREG_OFFSET_CAPTURE)) {
+            return substr($source, $start, strlen($m[0][0]) + $n[0][1]);
+        }
+        return substr($source, $start);
+    }
+
+    /**
+     * Status entries, fields and captions of a form built in PHP code. Reads the innermost array
+     * literals: an array with 'code' and 'caption' is a status entry ('code' as number or self::CONST),
+     * an array with 'name' and 'type' is a field; every 'caption'/'label' literal counts as form text.
+     *
+     * @return array{status: array<int, array{caption:string, line:int}>, fields: list<array{name:string, type:string, line:int}>, text: string}
+     */
+    private function parseCodeForm(string $classSource): array
+    {
+        $constants = [];
+        if (preg_match_all('/const\s+(?:int\s+)?(\w+)\s*=\s*(\d+)\s*;/', $classSource, $m, PREG_SET_ORDER)) {
+            foreach ($m as $hit) {
+                $constants[$hit[1]] = (int)$hit[2];
+            }
+        }
+        $literal = '\'((?:[^\'\\\\]|\\\\.)*)\'';
+        $result  = ['status' => [], 'fields' => [], 'text' => ''];
+        preg_match_all('/\[[^\[\]]*\]/', $classSource, $arrays, PREG_OFFSET_CAPTURE);
+        foreach ($arrays[0] as [$array, $offset]) {
+            $line = substr_count(substr($classSource, 0, $offset), "\n") + 1;
+            $caption = preg_match("/'caption'\s*=>\s*$literal/", $array, $c) ? stripcslashes($c[1]) : null;
+            if ($caption !== null && preg_match('/\'code\'\s*=>\s*(?:(\d+)|(?:self|static)::(\w+))/', $array, $code)) {
+                $value = $code[1] !== '' ? (int)$code[1] : ($constants[$code[2]] ?? null);
+                if ($value !== null) {
+                    $result['status'][$value] = ['caption' => $caption, 'line' => $line];
+                }
+            }
+            if (preg_match("/'name'\s*=>\s*$literal/", $array, $name) && preg_match("/'type'\s*=>\s*$literal/", $array, $type)) {
+                $result['fields'][] = ['name' => $name[1], 'type' => $type[1], 'line' => $line];
+            }
+        }
+        if (preg_match_all("/'(?:caption|label)'\s*=>\s*$literal/", $classSource, $texts)) {
+            $result['text'] = implode("\n", array_map('stripcslashes', $texts[1]));
+        }
+        return $result;
     }
 
     // ---- Rule 3/16: every status code the module sets is declared in form.json with a text ----------
 
-    private function checkStatusCodes(string $directory, string $source, ?array $form, ?array $locale): void
+    private function checkStatusCodes(string $directory, string $source, ?array $form, ?array $locale, ?array $codeForm): void
     {
         $declared = [];
+        foreach (($codeForm['status'] ?? []) as $code => $status) {
+            $declared[$code] = $status['caption'];
+            if ($code >= 200 && trim($status['caption']) === '') {
+                $this->add('status', 'error', $directory . '/module.php', $status['line'], 'status_without_caption', [$code]);
+            }
+            if ($code >= 200 && trim($status['caption']) !== '' && is_array($locale) && !$this->isTranslated($status['caption'], $locale)) {
+                $this->add('status', 'warning', $directory . '/locale.json', 0, 'status_not_translated', [$code, $status['caption']]);
+            }
+        }
         foreach (($form['status'] ?? []) as $status) {
             $code = (int)($status['code'] ?? 0);
             $caption = trim((string)($status['caption'] ?? ''));
@@ -149,8 +216,13 @@ final class McpCheck
 
     // ---- Rule 13: credentials are entered in password fields ----------------------------------------
 
-    private function checkSecrets(string $directory, ?array $form): void
+    private function checkSecrets(string $directory, ?array $form, ?array $codeForm): void
     {
+        foreach (($codeForm['fields'] ?? []) as $field) {
+            if (preg_match(self::SECRET_NAME_PATTERN, $field['name']) && in_array($field['type'], ['ValidationTextBox', 'TextBox', 'NumberSpinner'], true)) {
+                $this->add('secrets', 'warning', $directory . '/module.php', $field['line'], 'secret_not_password_field', [$field['name'], $field['type']]);
+            }
+        }
         if ($form === null) {
             return;
         }
@@ -201,15 +273,19 @@ final class McpCheck
 
     // ---- Rule 6: hints for every public function, meaningful parameter names ------------------------
 
-    private function checkFunctionHints(string $directory, array $publicFunctions, ?array $form, string $prefix, string $source): void
+    private function checkFunctionHints(string $directory, array $publicFunctions, ?array $form, string $prefix, string $source, ?array $codeForm): void
     {
         $formText = $form === null ? '' : (string)json_encode($form, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        // Captions in code: only the full name counts — every caption of the module is collected there,
+        // a plain word like "Power" or "Play" would otherwise hide a missing hint.
+        $codeText = $codeForm['text'] ?? '';
         foreach ($publicFunctions as $name => $function) {
             // RunSelfTest needs no hint: its fixed name is what makes it discoverable (rule 15).
             if (in_array($name, self::KERNEL_METHODS, true) || $name === 'RunSelfTest' || $this->isTimerTarget($source, $prefix, $name)) {
                 continue;
             }
-            $mentioned = str_contains($formText, $prefix . '_' . $name) || preg_match('/\b' . preg_quote($name, '/') . '\b/', $formText);
+            $mentioned = str_contains($formText, $prefix . '_' . $name) || preg_match('/\b' . preg_quote($name, '/') . '\b/', $formText)
+                || ($prefix !== '' && preg_match('/\b' . preg_quote($prefix . '_' . $name, '/') . '\b/', $codeText));
             if (!$mentioned) {
                 $this->add('hints', 'warning', $directory . '/form.json', 0, 'function_without_hint', [$prefix !== '' ? $prefix . '_' . $name : $name]);
             }
@@ -241,13 +317,16 @@ final class McpCheck
     }
 
     /** @return array<string, array{params:list<string>, return:string, line:int}> */
-    private function findPublicFunctions(string $source): array
+    private function findPublicFunctions(string $source, int $lineOffset = 0): array
     {
         $result = [];
-        if (!preg_match_all('/^\s*public\s+(?:static\s+)?function\s+(\w+)\s*\(([^)]*)\)\s*(?::\s*([?\w|]+))?/m', $source, $m, PREG_SET_ORDER | PREG_OFFSET_CAPTURE)) {
+        if (!preg_match_all('/^[ 	]*public\s+(?:static\s+)?function\s+(\w+)\s*\(([^)]*)\)\s*(?::\s*([?\w|]+))?/m', $source, $m, PREG_SET_ORDER | PREG_OFFSET_CAPTURE)) {
             return $result;
         }
         foreach ($m as $hit) {
+            if (str_starts_with($hit[1][0], '__')) {
+                continue; // magic methods (__construct, __destruct …) are PHP, not module functions
+            }
             $params = [];
             if (preg_match_all('/\$(\w+)/', $hit[2][0], $p)) {
                 $params = $p[1];
@@ -255,7 +334,7 @@ final class McpCheck
             $result[$hit[1][0]] = [
                 'params' => $params,
                 'return' => isset($hit[3]) ? (string)$hit[3][0] : '',
-                'line'   => substr_count(substr($source, 0, $hit[0][1]), "\n") + 1,
+                'line'   => $lineOffset + substr_count(substr($source, 0, $hit[0][1]), "\n") + 1,
             ];
         }
         return $result;

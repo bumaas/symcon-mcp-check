@@ -43,12 +43,24 @@ $expected = [
     'warning selftest selftest_signature '        => 'RunSelfTest with parameter and bool return',
     'warning hints function_without_hint FLD_SetMode' => 'public function without hint',
     'warning params generic_parameter FLD_SetMode,$Value' => 'generic parameter name',
+    'error status status_not_declared 206'        => 'code-built form: status set but not in the status list',
+    'warning status status_not_translated 203,Not translated in code.' => 'code-built form: status caption missing in locale.json',
+    'warning secrets secret_not_password_field ApiToken,ValidationTextBox' => 'code-built form: credential in a ValidationTextBox',
+    'warning hints function_without_hint FCD_SwitchOutput' => 'code-built form: public function without hint',
+    'warning params generic_parameter FCD_SwitchOutput,$Value' => 'code-built form: generic parameter name',
 ];
 foreach ($expected as $line => $label) {
     check(in_array($line, $flawed, true), 'flawed library: ' . $label, implode('; ', $flawed));
 }
 check(count($flawed) === count($expected), 'flawed library: no further findings', implode('; ', array_diff($flawed, array_keys($expected))));
 check(!array_any($flawed, static fn(string $f): bool => str_contains($f, 'FLC')), 'configurator (type 4): no self test demanded');
+check(!array_any($flawed, static fn(string $f): bool => str_contains($f, 'parse')), 'helper class in module.php: its public methods are not module functions');
+
+// ---- line numbers refer to the file, also when only the module class is searched ----
+$raw = (new McpCheck(__DIR__ . '/fixtures/flawed'))->run();
+$hit = array_values(array_filter($raw, static fn(array $f): bool => $f['key'] === 'generic_parameter' && $f['args'][0] === 'FCD_SwitchOutput'));
+$expectedLine = 1 + (int)array_search(true, array_map(static fn(string $l): bool => str_contains($l, 'function SwitchOutput'), file(__DIR__ . '/fixtures/flawed/Code Device/module.php')), true);
+check(($hit[0]['line'] ?? 0) === $expectedLine, 'line number of a finding in the module class', 'expected ' . $expectedLine . ', got ' . ($hit[0]['line'] ?? 0));
 
 // ---- no library ----
 $none = summary((new McpCheck(__DIR__))->run());

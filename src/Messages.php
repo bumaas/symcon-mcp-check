@@ -15,8 +15,8 @@ final class Messages
             'de' => 'Datei ist kein gültiges JSON.',
         ],
         'status_not_declared' => [
-            'en' => 'Status %1$s is set but not declared in form.json "status" — an AI only sees the number.',
-            'de' => 'Status %1$s wird gesetzt, steht aber nicht in der "status"-Liste der form.json — eine KI sieht nur die Zahl.',
+            'en' => 'Status %1$s is set but not declared in the "status" list of the configuration form — an AI only sees the number.',
+            'de' => 'Status %1$s wird gesetzt, steht aber nicht in der "status"-Liste des Konfigurationsformulars — eine KI sieht nur die Zahl.',
         ],
         'status_without_caption' => [
             'en' => 'Status %1$s has no caption.',
