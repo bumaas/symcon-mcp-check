@@ -1,6 +1,6 @@
 # Regeln für MCP-taugliche Symcon-Module
 
-*Entwurf, Stand 04.10.2026*
+*Entwurf, Stand 05.10.2026*
 
 Mit dem MCP-Server von Symcon kann ein KI-Assistent eine Anlage lesen und bedienen: Instanzen finden,
 Variablen schalten, Formulare und Protokolle lesen, Modulfunktionen aufrufen. Ob er dabei das Richtige tut,
@@ -21,7 +21,8 @@ Ein Assistent liest **kein README**. Über den MCP-Server sieht er:
 | Konfiguration | Werte der Properties, Zugangsdaten verborgen |
 | Variablen | Name, formatierter Wert, Darstellung, ob schaltbar, letzte Änderung und Aktualisierung |
 | Protokoll und Debug | die Meldungen des Moduls |
-| Modulfunktionen | Name, **Parameternamen** und Typen, Rückgabetyp |
+| Modulfunktionen | Name, **Parameternamen** und Typen, Rückgabetyp; aufrufbar mit dem Recht Ausführen |
+| Kachel | auf Anforderung als Vorschau (Link für einen Screenshot) und als Text: formatierter Wert und Darstellung |
 
 Er sieht **nicht**: Doku und README, Beschreibungen von Funktionen, Popups und `UpdateFormField` aus
 Formular-Knöpfen. Steht die Bedeutung nur dort, rät er.
@@ -51,6 +52,8 @@ Weil mit der Funktion selbst nur ihr Name und die Namen der Parameter reisen, sa
 `<PRÄFIX>_RunSelfTest(int $InstanceID): string` prüft Konfiguration, Verbindung und Zustand und beschreibt
 das Ergebnis als Text – **ohne etwas zu verändern**. Der feste Name ist der einzige Weg, ihn ohne Formular
 und ohne Doku zu finden. In unseren Tests war er stets das hilfreichste Element.
+Aufgerufen wird er wie jede Modulfunktion, also mit dem Recht Ausführen. Ein eigenes Leserecht dafür sieht
+Symcon bisher nicht vor.
 
 **4. Namen sind eindeutig und verständlich.**
 Variablen heißen nach ihrer Bedeutung, nicht nach einer technischen Kennung, und **keine zwei Variablen
@@ -62,7 +65,9 @@ wie „(veraltet)“ und verlieren ihre Aktion, statt schaltbar stehen zu bleibe
 **5. Die Darstellung zeigt die Bedeutung, nicht nur den Datentyp.**
 Erlaubte Werte stehen als Optionen in der Darstellung, Einheiten als Suffix, Nachkommastellen passend zum
 Wert. Ein Rollladen ist ein Rollladen, kein Schieberegler. So erschließt sich ein Wert ohne Doku – und
-„60“ wird zu „60 %“.
+„60“ wird zu „60 %“. Ein Suffix im Anzeigeintervall ersetzt das Suffix der Darstellung, es wird nicht
+verdoppelt. Ein Schieberegler ohne Aktion zeigt in der Kachel nur die nackte Zahl, Bogen und Einheit erst
+mit Aktion.
 
 ### B. Fehler und Zustände
 
@@ -149,7 +154,8 @@ Drei Stufen, die sich ergänzen. Die erste prüft gegen die Regeln, die beiden a
    - was der MCP-Server tatsächlich ausliefert (kommt der Statustext mit, sind Zugangsdaten verborgen,
      wird gekürzt),
    - wie echte Geräte- und Fremddaten aussehen (Namen und Werte, die erst ein echtes Gerät liefert),
-   - ob Labels und Hinweise verständlich sind – ein Test prüft nur, dass sie da sind.
+   - ob Labels und Hinweise verständlich sind – ein Test prüft nur, dass sie da sind,
+   - wie die Darstellung in der Kachel ankommt (Kachel-Vorschau statt Nachsehen in der Visualisierung).
 
    Seine Schwäche: Wer das Modul kennt, ergänzt Fehlendes unbewusst aus seinem Wissen.
 
@@ -157,7 +163,8 @@ Drei Stufen, die sich ergänzen. Die erste prüft gegen die Regeln, die beiden a
    ein Anwender sie stellt – einrichten, in Alltagsgrößen schalten, eine Fehlbedienung, eine Diagnose
    („warum ist gestern … passiert?“), eine Erklärung ohne Wirkung. Er darf nur die MCP-Werkzeuge nutzen,
    keine Doku und keine Dateien, und berichtet je Aufgabe, was er getan hat und woher er die Information
-   hatte. Jede Aussage wird danach an der Anlage gegengeprüft. Er findet, wo man ohne Hintergrundwissen
+   hatte. Nach dem Schalten wartet er mit dem Warte-Werkzeug des Servers auf die Rückmeldung, nicht mit einer
+   festen Pause im Skript. Jede Aussage wird danach an der Anlage gegengeprüft. Er findet, wo man ohne Hintergrundwissen
    falsch abbiegt – genau das, was der Lesetest übersieht. Aufwendiger als die anderen Stufen, daher nach
    größeren Änderungen und vor einer Veröffentlichung.
 
