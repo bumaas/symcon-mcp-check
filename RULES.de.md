@@ -54,6 +54,8 @@ das Ergebnis als Text – **ohne etwas zu verändern**. Der feste Name ist der e
 und ohne Doku zu finden. In unseren Tests war er stets das hilfreichste Element.
 Aufgerufen wird er wie jede Modulfunktion, also mit dem Recht Ausführen. Ein eigenes Leserecht dafür sieht
 Symcon bisher nicht vor.
+Der Text läuft über `Translate()`, denn auch Anwender lesen ihn im Formular. Einem Assistenten ist die
+Sprache gleich; wörtlich bleiben müssen nur Bezeichner, Aufrufe und Werte, die er weiterverwendet.
 
 **4. Namen sind eindeutig und verständlich.**
 Variablen heißen nach ihrer Bedeutung, nicht nach einer technischen Kennung, und **keine zwei Variablen
