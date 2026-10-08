@@ -31,26 +31,58 @@ Forms built in PHP code (an own `GetConfigurationForm()` in `module.php`) are re
 Behaviour (invalid values rejected with an error, state surviving a reload, variables named and presented
 unambiguously) cannot be checked statically; test it in the module's own runtime tests.
 
-## Usage
+## Getting started
 
-GitHub Actions (PHP ≥ 8.3 must be available, e.g. via `shivammathur/setup-php`):
+There is nothing to install. The check is a GitHub Action that your module repository calls on every push.
+
+1. In your module repository, create the file `.github/workflows/mcp-check.yml` with this content:
+
+   ```yaml
+   name: MCP check
+
+   on: [push, pull_request]
+
+   jobs:
+     mcp-check:
+       runs-on: ubuntu-latest
+       steps:
+         - uses: actions/checkout@v7
+         - uses: shivammathur/setup-php@v2
+           with:
+             php-version: '8.4'
+         - uses: bumaas/symcon-mcp-check@v1
+   ```
+
+2. Commit and push. On GitHub, the **Actions** tab of your repository now shows a run named “MCP check”.
+3. Open the run. Every finding is listed in the log and as an annotation, with file and line. Annotations
+   also show up in the “Files changed” view of a pull request.
+
+The run fails on errors and passes with warnings. Fix the errors first, then work through the warnings.
+If you already have a workflow that sets up PHP (8.3 or newer), add only the last step to it.
+
+Options (all optional):
 
 ```yaml
 - uses: bumaas/symcon-mcp-check@v1
   with:
-    path: .          # folder with library.json
-    language: en     # or de
-    fail-on: error   # or warning
+    path: .          # folder with library.json, if it is not the repository root
+    language: de     # findings in German (default en)
+    fail-on: warning # fail on warnings too (default error)
 ```
 
-Locally:
+`@v1` always points to the latest 1.x release, so new rules arrive without changing your workflow. Pin a
+version (`@v1.3.0`) if you want to decide yourself when that happens.
+
+### Running it locally
+
+With PHP 8.3 or newer on your machine:
 
 ```
-php check_mcp.php <library path> [--lang=en|de] [--fail-on=error|warning]
+git clone https://github.com/bumaas/symcon-mcp-check.git
+php symcon-mcp-check/check_mcp.php <path to your library> --lang=en
 ```
 
-Exit code 0 = passed, 1 = findings at or above `--fail-on`, 2 = usage error. In GitHub Actions the findings
-also appear as annotations.
+Exit code 0 = passed, 1 = findings at or above `--fail-on`, 2 = usage error.
 
 ## Badge
 
@@ -93,6 +125,19 @@ Quellen steht in [RULES.de.md](RULES.de.md), die Prüfung hier deckt davon den s
 
 Formulare, die im PHP-Code entstehen (eigenes `GetConfigurationForm()` in der `module.php`), werden ebenfalls gelesen: Statuseinträge, Felder und Texte stammen dann aus den Array-Literalen der Modulklasse. Als öffentliche Funktionen zählen nur die der Modulklasse, nicht die von Hilfsklassen in derselben Datei.
 
-Aufruf lokal: `php check_mcp.php <Bibliothek> --lang=de`. In GitHub Actions: `uses: bumaas/symcon-mcp-check@v1`
-mit `language: de`. Das Badge zeigt das Ergebnis des Workflows; „MCP check“ ist kein offizielles Symcon-Siegel.
+### Einbinden
+
+Installiert wird nichts. Die Prüfung ist eine GitHub Action, die dein Modul-Repo bei jedem Push aufruft.
+
+1. Im Modul-Repo die Datei `.github/workflows/mcp-check.yml` anlegen, mit dem Inhalt aus „Getting started“
+   oben. Für deutsche Befundtexte unter den letzten Schritt noch `with:` und `language: de` setzen.
+2. Committen und pushen. Im Reiter **Actions** des Repos erscheint ein Lauf „MCP check“.
+3. Im Lauf stehen alle Befunde mit Datei und Zeile, im Log und als Annotation. In einem Pull Request
+   erscheinen sie auch unter „Files changed“.
+
+Fehler lassen den Lauf scheitern, Warnungen nicht. Wer schon einen Workflow mit PHP ab 8.3 hat, hängt dort
+nur den letzten Schritt an. Lokal geht es mit `php check_mcp.php <Bibliothek> --lang=de` aus einem Klon
+dieses Repos.
+
+Das Badge zeigt das Ergebnis des Workflows; „MCP check“ ist kein offizielles Symcon-Siegel.
 Händische Tests (Blindtest mit frischem Assistenten) mit Datum und Version im Modul-README dokumentieren.
