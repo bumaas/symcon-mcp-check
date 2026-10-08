@@ -14,7 +14,7 @@ declare(strict_types=1);
  */
 final class McpCheck
 {
-    /** Kernel callbacks and standard overrides — not part of the module's own public API. */
+    /** Kernel callbacks and standard overrides are not part of the module's own public API. */
     private const array KERNEL_METHODS = [
         '__construct', 'Create', 'ApplyChanges', 'Destroy', 'RequestAction', 'ReceiveData', 'ForwardData',
         'MessageSink', 'GetConfigurationForm', 'GetConfigurationForParent', 'GetCompatibleParents',
@@ -217,7 +217,7 @@ final class McpCheck
     {
         $body = $this->functionBody($classSource, 'RequestAction');
         if ($body === null || !preg_match('/\bswitch\s*\(/', $body)) {
-            return; // no switch (delegates or uses match) — nothing to judge statically
+            return; // no switch (delegates or uses match), nothing to judge statically
         }
         $default = strrpos($body, 'default:');
         $silent  = $default === false || !preg_match('/\b(trigger_error|throw)\b/', substr($body, $default));
@@ -293,7 +293,7 @@ final class McpCheck
 
     /**
      * The module class only (class … extends IPSModule/IPSModuleStrict up to the next class, trait,
-     * interface or enum) — helper classes in the same file are not module functions.
+     * interface or enum). Helper classes in the same file are not module functions.
      */
     private function moduleClassSource(string $source): string
     {
@@ -480,16 +480,16 @@ final class McpCheck
     private function checkFunctionHints(string $directory, array $publicFunctions, ?array $form, string $prefix, string $source, ?array $codeForm): void
     {
         $formText = $form === null ? '' : (string)json_encode($form, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        // Captions in code: only the full name counts — every caption of the module is collected there,
-        // a plain word like "Power" or "Play" would otherwise hide a missing hint.
+        // Only the full name PREFIX_Name counts, in form.json as in code: a caption word like "Refresh",
+        // "Power" or "Play" would otherwise hide a missing hint. Without a prefix the plain name has to do.
         $codeText = $codeForm['text'] ?? '';
         foreach ($publicFunctions as $name => $function) {
             // RunSelfTest needs no hint: its fixed name is what makes it discoverable (rule 15).
             if (in_array($name, self::KERNEL_METHODS, true) || $name === 'RunSelfTest' || $this->isTimerTarget($source, $prefix, $name)) {
                 continue;
             }
-            $mentioned = str_contains($formText, $prefix . '_' . $name) || preg_match('/\b' . preg_quote($name, '/') . '\b/', $formText)
-                || ($prefix !== '' && preg_match('/\b' . preg_quote($prefix . '_' . $name, '/') . '\b/', $codeText));
+            $pattern   = '/\b' . preg_quote($prefix !== '' ? $prefix . '_' . $name : $name, '/') . '\b/';
+            $mentioned = preg_match($pattern, $formText) || ($prefix !== '' && preg_match($pattern, $codeText));
             if (!$mentioned) {
                 $this->add('hints', 'warning', $directory . '/form.json', 0, 'function_without_hint', [$prefix !== '' ? $prefix . '_' . $name : $name]);
             }

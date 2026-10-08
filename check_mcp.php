@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * symcon-mcp-check — static MCP-readiness checks for Symcon module libraries.
+ * symcon-mcp-check: static MCP-readiness checks for Symcon module libraries.
  *
  * Usage: php check_mcp.php [<library path>] [--lang=en|de] [--fail-on=error|warning]
  * Exit:  0 = passed, 1 = findings at or above --fail-on, 2 = usage error
@@ -33,6 +33,8 @@ if (!in_array($language, ['en', 'de'], true) || !in_array($failOn, ['error', 'wa
 }
 
 $findings = (new McpCheck(rtrim($path, '/\\')))->run();
+// Findings name files relative to the library, GitHub annotations expect them relative to the repository.
+$annotationPrefix = preg_replace('#^(\./)+#', '', rtrim(str_replace('\\', '/', $path), '/') . '/');
 usort($findings, static fn(array $a, array $b): int => [$a['file'], $a['line']] <=> [$b['file'], $b['line']]);
 
 $counts = ['error' => 0, 'warning' => 0];
@@ -40,9 +42,9 @@ foreach ($findings as $f) {
     $counts[$f['severity']]++;
     $where = $f['file'] . ($f['line'] > 0 ? ':' . $f['line'] : '');
     $label = $f['severity'] === 'error' ? 'ERROR  ' : 'WARNING';
-    echo sprintf("%s [%s] %s — %s\n", $label, $f['rule'], $where, Messages::format($f['key'], $f['args'], $language));
+    echo sprintf("%s [%s] %s  %s\n", $label, $f['rule'], $where, Messages::format($f['key'], $f['args'], $language));
     if (getenv('GITHUB_ACTIONS') === 'true') {
-        echo sprintf("::%s file=%s,line=%d,title=MCP %s::%s\n", $f['severity'], $f['file'], max(1, $f['line']), $f['rule'],
+        echo sprintf("::%s file=%s,line=%d,title=MCP %s::%s\n", $f['severity'], $annotationPrefix . $f['file'], max(1, $f['line']), $f['rule'],
             Messages::format($f['key'], $f['args'], $language));
     }
 }

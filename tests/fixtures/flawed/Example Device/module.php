@@ -18,6 +18,11 @@ class FlawedDevice extends IPSModuleStrict
     {
     }
 
+    // A button caption "Refresh" is no hint for FLD_Refresh: only the full name counts.
+    public function Refresh(): void
+    {
+    }
+
     public function RunSelfTest(bool $verbose): bool
     {
         return true;

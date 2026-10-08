@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 /**
  * Tests for symcon-mcp-check: every rule must fire on the flawed library and stay silent on the clean one.
- * Run: php tests/run.php — last line "N checks, M failures", exit 0/1.
+ * Run: php tests/run.php (last line "N checks, M failures", exit 0/1).
  */
 
 require_once dirname(__DIR__) . '/src/McpCheck.php';
@@ -56,6 +56,7 @@ $expected = [
     'warning secrets debug_secret $token' => 'credential written to the debug output',
     'warning hints function_without_hint FCD_SetPower' => 'second public function without hint',
     'warning params generic_parameter FCD_SetPower,$power' => 'generic parameter name $power',
+    'warning hints function_without_hint FLD_Refresh' => 'form.json: a caption word equal to the function name is no hint',
 ];
 foreach ($expected as $line => $label) {
     check(in_array($line, $flawed, true), 'flawed library: ' . $label, implode('; ', $flawed));
@@ -69,6 +70,18 @@ $raw = (new McpCheck(__DIR__ . '/fixtures/flawed'))->run();
 $hit = array_values(array_filter($raw, static fn(array $f): bool => $f['key'] === 'generic_parameter' && $f['args'][0] === 'FCD_SwitchOutput'));
 $expectedLine = 1 + (int)array_search(true, array_map(static fn(string $l): bool => str_contains($l, 'function SwitchOutput'), file(__DIR__ . '/fixtures/flawed/Code Device/module.php')), true);
 check(($hit[0]['line'] ?? 0) === $expectedLine, 'line number of a finding in the module class', 'expected ' . $expectedLine . ', got ' . ($hit[0]['line'] ?? 0));
+
+// ---- command line: exit code and annotations relative to the repository, not to the library ----
+$process = proc_open([PHP_BINARY, 'check_mcp.php', 'tests/fixtures/flawed'], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes,
+    dirname(__DIR__), ['GITHUB_ACTIONS' => 'true'] + getenv());
+$output = stream_get_contents($pipes[1]);
+fclose($pipes[1]);
+fclose($pipes[2]);
+$exit = proc_close($process);
+check($exit === 1, 'command line: exit 1 on errors', 'exit ' . $exit);
+preg_match_all('/^::(?:error|warning) file=([^,]*),/m', $output, $annotations);
+check($annotations[1] !== [] && array_all($annotations[1], static fn(string $f): bool => str_starts_with($f, 'tests/fixtures/flawed/')),
+    'command line: annotation paths include the library path', implode('; ', array_unique($annotations[1])));
 
 // ---- no library ----
 $none = summary((new McpCheck(__DIR__))->run());

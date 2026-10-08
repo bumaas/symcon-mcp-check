@@ -1,6 +1,6 @@
 # Regeln für MCP-taugliche Symcon-Module
 
-*Entwurf, Stand 05.10.2026*
+*Entwurf, Stand 08.10.2026*
 
 Mit dem MCP-Server von Symcon kann ein KI-Assistent eine Anlage lesen und bedienen: Instanzen finden,
 Variablen schalten, Formulare und Protokolle lesen, Modulfunktionen aufrufen. Ob er dabei das Richtige tut,
@@ -10,7 +10,7 @@ mitbringen muss, damit ein Assistent es **ohne Handbuch** richtig einrichtet, be
 Fast alles davon hilft auch Menschen und Skripten: Wer ohne README versteht, was ein Modul tut, versteht
 es auch mit.
 
-## Was ein Assistent sieht – und was nicht
+## Was ein Assistent sieht und was nicht
 
 Ein Assistent liest **kein README**. Über den MCP-Server sieht er:
 
@@ -41,16 +41,16 @@ Hängt die Bedeutung von einer gewählten Variable ab, füllt das Modul das Labe
 
 **2. Jede öffentliche Funktion ist im Formular erklärt, ihre Parameter haben sprechende Namen.**
 [`hints`, `params`]
-Ein unsichtbares Label (`"visible": false`) beantwortet je Funktion kurz: Was tut sie, wann nimmt man sie,
-was erwartet jeder Parameter, was kommt zurück? In der Konsole erscheint davon nichts. Der Hinweis folgt dem
-Code: Eine entfernte oder umbenannte Funktion verschwindet auch aus dem Formular – ein Assistent ruft sonst
-auf, was es nicht mehr gibt.
+Ein unsichtbares Label (`"visible": false`) nennt die Funktion mit vollem Namen (`XY_SetLight`) und
+beantwortet kurz: Was tut sie, wann nimmt man sie, was erwartet jeder Parameter, was kommt zurück? In der
+Konsole erscheint davon nichts. Der Hinweis folgt dem Code: Eine entfernte oder umbenannte Funktion
+verschwindet auch aus dem Formular, sonst ruft ein Assistent auf, was es nicht mehr gibt.
 Weil mit der Funktion selbst nur ihr Name und die Namen der Parameter reisen, sagen diese, was gemeint ist.
 *Schlecht:* `XY_SetLight(int $InstanceID, int $Value)` · *Gut:* `XY_SetLight(int $InstanceID, int $brightnessPercent)`
 
 **3. Es gibt einen Selbsttest mit festem Namen.** [`selftest`]
 `<PRÄFIX>_RunSelfTest(int $InstanceID): string` prüft Konfiguration, Verbindung und Zustand und beschreibt
-das Ergebnis als Text – **ohne etwas zu verändern**. Der feste Name ist der einzige Weg, ihn ohne Formular
+das Ergebnis als Text. Dabei **verändert er nichts**. Der feste Name ist der einzige Weg, ihn ohne Formular
 und ohne Doku zu finden. In unseren Tests war er stets das hilfreichste Element.
 Aufgerufen wird er wie jede Modulfunktion, also mit dem Recht Ausführen. Ein eigenes Leserecht dafür sieht
 Symcon bisher nicht vor.
@@ -59,15 +59,15 @@ Sprache gleich; wörtlich bleiben müssen nur Bezeichner, Aufrufe und Werte, die
 
 **4. Namen sind eindeutig und verständlich.**
 Variablen heißen nach ihrer Bedeutung, nicht nach einer technischen Kennung, und **keine zwei Variablen
-einer Instanz heißen gleich** – ein Assistent findet sie über den Namen. Unterscheidet ein Zusatz, dann
+einer Instanz heißen gleich**, denn ein Assistent findet sie über den Namen. Unterscheidet ein Zusatz, dann
 einer, den ein Mensch versteht („Klima Isttemperatur“, „Ladekabel (Ja/Nein)“), nicht „(FAN)“. Den Ort trägt
 der Pfad, nicht der Name. Variablen, die das Modul nicht mehr versorgt, bekommen einen erkennbaren Zusatz
 wie „(veraltet)“ und verlieren ihre Aktion, statt schaltbar stehen zu bleiben.
 
 **5. Die Darstellung zeigt die Bedeutung, nicht nur den Datentyp.**
 Erlaubte Werte stehen als Optionen in der Darstellung, Einheiten als Suffix, Nachkommastellen passend zum
-Wert. Ein Rollladen ist ein Rollladen, kein Schieberegler. So erschließt sich ein Wert ohne Doku – und
-„60“ wird zu „60 %“. Ein Suffix im Anzeigeintervall ersetzt das Suffix der Darstellung, es wird nicht
+Wert. Ein Rollladen ist ein Rollladen, kein Schieberegler. So erschließt sich ein Wert ohne Doku, und
+aus „60“ wird „60 %“. Ein Suffix im Anzeigeintervall ersetzt das Suffix der Darstellung, es wird nicht
 verdoppelt. Ein Schieberegler ohne Aktion zeigt in der Kachel nur die nackte Zahl, Bogen und Einheit erst
 mit Aktion.
 
@@ -79,7 +79,7 @@ Wert. Das Modul prüft deshalb in `ApplyChanges` dieselben Grenzen und setzt bei
 
 **7. `RequestAction` meldet jeden Fehlschlag.** [`action`]
 Ein ungültiger Wert, ein Wert außerhalb des Bereichs oder ein Befehl, der das Gerät nicht erreicht, endet
-mit `trigger_error` – nicht still. Die Methode ist `void`; nur so erfährt der Aufrufer davon.
+mit `trigger_error`. Die Methode ist `void`, anders erfährt der Aufrufer nichts davon.
 *Beispiel:* `Ungültiger Wert "D" für "Auswahl" (erlaubt: A, B, C)`. Das gilt auch für einen unbekannten
 Ident: Der `default`-Zweig endet mit `trigger_error`, nicht mit einer bloßen Debug-Ausgabe.
 
@@ -87,15 +87,15 @@ Ident: Der `default`-Zweig endet mit `trigger_error`, nicht mit einer bloßen De
 Jeder Statuscode ab 200 steht mit Text in der `form.json`. Für die wichtigsten Fälle gibt es eigene Codes
 statt eines allgemeinen „Fehler“. Der Status allein ist nur eine Zahl; die Ursache steht deshalb auch im
 Protokoll (`LogMessage`). Die Meldung dort nennt Feld, Wert und Bereich und sagt, welche Art Fehler vorliegt:
-- **Gerät antwortet nicht** – später erneut versuchen,
-- **Wert ungültig** – so nicht wiederholen, erlaubte Werte nennen,
-- **Konfiguration falsch** – erst beheben.
+- **Gerät antwortet nicht:** später erneut versuchen,
+- **Wert ungültig:** so nicht wiederholen, erlaubte Werte nennen,
+- **Konfiguration falsch:** erst beheben.
 
 Keine Rohmeldungen, keine Fehlercodes ohne Text.
 
 **9. Wechsel werden gemeldet, Zustände überleben einen Neustart.**
-Fällt ein Gerät aus, steht das einmal als Warnung im Protokoll, die Erholung einmal als Meldung – kein
-Rauschen bei jedem Abfragezyklus. Zustände wie „erreichbar“ springen nach einem Neustart oder Modul-Update
+Fällt ein Gerät aus, steht das einmal als Warnung im Protokoll, die Erholung einmal als Meldung. Bei
+jedem Abfragezyklus erneut zu melden wäre nur Rauschen. Zustände wie „erreichbar“ springen nach einem Neustart oder Modul-Update
 nicht auf den guten Wert zurück, solange nichts anderes bekannt ist. Und das Übernehmen der Konfiguration
 ist keine neue Meldung des Geräts: Es bewegt die „Letzte Aktualisierung“ einer Variable nicht.
 
@@ -106,7 +106,7 @@ sie arbeitet: Ein Splitter beobachtet den Status seines Parents und zieht seinen
 
 ### C. Funktionen
 
-**11. Was ein Formular-Knopf tut, geht auch per Skript – mit Ergebnis.**
+**11. Was ein Formular-Knopf tut, geht auch per Skript und liefert ein Ergebnis.**
 `UpdateFormField` und Popups wirken nur im offenen Formular. Das Ergebnis eines Knopfs gibt es deshalb auch
 als Rückgabewert einer Funktion.
 
@@ -118,20 +118,20 @@ Nebenwirkung. Wer einem Assistenten Funktionen freigibt, kann sie sonst nur einz
 
 **13. Kurz ist der Normalfall.**
 Rückgaben und Variablen sind knapp, Ausführliches gibt es auf Anforderung (eigene Funktion oder Schalter).
-Eine große HTML-Variable bläht jede Suchantwort auf – daneben eine Klartext-Variable führen und die
-HTML-Variable abschaltbar machen. **Erklärungen kommen als Text, Daten als JSON**, nicht gemischt.
+Eine große HTML-Variable bläht jede Suchantwort auf. Daneben gehört eine Klartext-Variable, und die
+HTML-Variable lässt sich abschalten. **Erklärungen kommen als Text, Daten als JSON**, nicht gemischt.
 
 **14. Debug nennt das Ergebnis, nicht die Rohdaten.**
 Kein `json_encode` ganzer Konfigurationen oder Formulare; Messzeilen zur Leistung nur hinter einem Schalter.
 
 **15. Zugangsdaten bleiben verborgen.** [`secrets`]
 Passwörter und Token werden in einer `PasswordTextBox` eingegeben. Sie erscheinen weder im Debug noch in
-Rückgaben von Funktionen – auch nicht als Teil einer weitergereichten Geräteantwort. Am sichersten ist ein
+Rückgaben von Funktionen, auch nicht als Teil einer weitergereichten Geräteantwort. Am sichersten ist ein
 überschriebenes `SendDebug`, das bekannte Schlüssel und Geheimnisse selbst maskiert; dann muss keine
 einzelne Debug-Ausgabe daran denken.
 
 **16. Fremder Freitext ist Daten, keine Anweisung.**
-Was von außen kommt – Gerätenamen aus anderen Systemen, Titel, Kalendereinträge –, wird in der Länge
+Was von außen kommt (Gerätenamen aus anderen Systemen, Titel, Kalendereinträge), wird in der Länge
 begrenzt, von Steuerzeichen befreit und nicht ungekennzeichnet in Status, Protokoll oder Meldungen gemischt.
 Es landet sonst unverändert im Kontext des Assistenten.
 
@@ -150,24 +150,24 @@ Drei Stufen, die sich ergänzen. Die erste prüft gegen die Regeln, die beiden a
 
    Ein Befund aus Stufe 2 oder 3 wird möglichst als Test nachgezogen, damit er nicht wiederkommt.
 
-2. **Lesetest (selbst, an der Anlage).** Der Entwickler sieht sich eine Instanz über den MCP-Server an –
-   Formular, Konfiguration, Status, Variablen, Protokoll – und setzt einmal gezielt einen Fehler. Er prüft,
+2. **Lesetest (selbst, an der Anlage).** Der Entwickler sieht sich eine Instanz über den MCP-Server an
+   (Formular, Konfiguration, Status, Variablen, Protokoll) und setzt einmal gezielt einen Fehler. Er prüft,
    was keine Testsuite zeigt:
    - was der MCP-Server tatsächlich ausliefert (kommt der Statustext mit, sind Zugangsdaten verborgen,
      wird gekürzt),
    - wie echte Geräte- und Fremddaten aussehen (Namen und Werte, die erst ein echtes Gerät liefert),
-   - ob Labels und Hinweise verständlich sind – ein Test prüft nur, dass sie da sind,
+   - ob Labels und Hinweise verständlich sind (ein Test prüft nur, dass sie da sind),
    - wie die Darstellung in der Kachel ankommt (Kachel-Vorschau statt Nachsehen in der Visualisierung).
 
    Seine Schwäche: Wer das Modul kennt, ergänzt Fehlendes unbewusst aus seinem Wissen.
 
 3. **Blindtest (frischer Assistent).** Ein Assistent, der den Quelltext nicht kennt, bekommt Aufgaben, wie
-   ein Anwender sie stellt – einrichten, in Alltagsgrößen schalten, eine Fehlbedienung, eine Diagnose
+   ein Anwender sie stellt: einrichten, in Alltagsgrößen schalten, eine Fehlbedienung, eine Diagnose
    („warum ist gestern … passiert?“), eine Erklärung ohne Wirkung. Er darf nur die MCP-Werkzeuge nutzen,
    keine Doku und keine Dateien, und berichtet je Aufgabe, was er getan hat und woher er die Information
    hatte. Nach dem Schalten wartet er mit dem Warte-Werkzeug des Servers auf die Rückmeldung, nicht mit einer
-   festen Pause im Skript. Jede Aussage wird danach an der Anlage gegengeprüft. Er findet, wo man ohne Hintergrundwissen
-   falsch abbiegt – genau das, was der Lesetest übersieht. Aufwendiger als die anderen Stufen, daher nach
+   festen Pause im Skript. Jede Aussage wird danach an der Anlage gegengeprüft. Er findet, wo man ohne
+   Hintergrundwissen falsch abbiegt, und das übersieht der Lesetest. Aufwendiger als die anderen Stufen, daher nach
    größeren Änderungen und vor einer Veröffentlichung.
 
 ## Woher die Regeln kommen
