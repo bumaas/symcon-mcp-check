@@ -61,8 +61,10 @@ Sprache gleich; wörtlich bleiben müssen nur Bezeichner, Aufrufe und Werte, die
 Variablen heißen nach ihrer Bedeutung, nicht nach einer technischen Kennung, und **keine zwei Variablen
 einer Instanz heißen gleich**, denn ein Assistent findet sie über den Namen. Unterscheidet ein Zusatz, dann
 einer, den ein Mensch versteht („Klima Isttemperatur“, „Ladekabel (Ja/Nein)“), nicht „(FAN)“. Den Ort trägt
-der Pfad, nicht der Name. Variablen, die das Modul nicht mehr versorgt, bekommen einen erkennbaren Zusatz
-wie „(veraltet)“ und verlieren ihre Aktion, statt schaltbar stehen zu bleiben.
+der Pfad, nicht der Name. Variablen, die das Modul nicht mehr versorgt, verlieren ihre Aktion, statt
+schaltbar stehen zu bleiben. Ihren Namen ändert das Modul nicht, er gehört nach dem Anlegen dem Anwender
+(Store-Review). Stattdessen nennt das Konfigurationsformular sie, wo auch ein Assistent sie findet, und
+bietet einen Knopf, der sie nach einer Rückfrage löscht. Ins Log kommt einmal eine Meldung.
 
 **5. Die Darstellung zeigt die Bedeutung, nicht nur den Datentyp.**
 Erlaubte Werte stehen als Optionen in der Darstellung, Einheiten als Suffix, Nachkommastellen passend zum
