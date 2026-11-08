@@ -84,6 +84,10 @@ Ein ungültiger Wert, ein Wert außerhalb des Bereichs oder ein Befehl, der das 
 mit `trigger_error`. Die Methode ist `void`, anders erfährt der Aufrufer nichts davon.
 *Beispiel:* `Ungültiger Wert "D" für "Auswahl" (erlaubt: A, B, C)`. Das gilt auch für einen unbekannten
 Ident: Der `default`-Zweig endet mit `trigger_error`, nicht mit einer bloßen Debug-Ausgabe.
+Reicht ein Modul eine Aktion an eine fremde Variable weiter, muss es das Ergebnis nicht selbst melden: Lehnt
+der Kernel ab (keine Aktion hinterlegt, Aktionsskript gibt Text aus), liefert das globale `RequestAction`
+`false` und löst eine Warnung mit dem Grund aus, die auch durch das Modul beim Aufrufer ankommt. Selbst melden
+muss das Modul, was es vorher abfängt.
 
 **8. Jeder Fehler hat einen Statuscode mit Text, eine Art und einen nächsten Schritt.** [`status`]
 Jeder Statuscode ab 200 steht mit Text in der `form.json`. Für die wichtigsten Fälle gibt es eigene Codes
